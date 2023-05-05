@@ -1,53 +1,136 @@
+#compdef zinit
+#autoload
+
 # Copyright 2021-2023 Nicholas Serrano
-# License: MIT
+# Copyright 2023 Vladislav Doster
 
-# Zinit recache subcommand tab completion
+__zinit_installed_recache() {
+  local -a recache
+  recache=($(brew services list | awk '{print $1}' | tail -n+2))
+  _describe -t recache 'installed recache' recache
+}
 
-typeset -a commands
-commands=(recache:'Regenerate eval cache')
-_arguments -C \
-  '1: :->command'\
-  '*: :->argument' && ret=0
-case $state in
-  command)
-      _describe -t commands "z-a-eval subcommand" commands && ret=0
-      ;;
+__zinit_recache_commands() {
+  local -a commands
+  commands=(
+    'cleanup:Get rid of stale recache and unused plists'
+    'list:List all recache managed by zinit recache'
+    'restart:Gracefully restart selected service'
+    "run:Run selected service. Don't start at login (nor boot)."
+    'start:Start selected service'
+    'stop:Stop selected service'
+  )
+  _describe -t commands 'commands' commands
+}
 
-  argument)
-    case $words[2] in
-      recache)
-        # Plugins
-        typeset -a plugins
-        plugins=( "${ZINIT[PLUGINS_DIR]}"/**/evalcache.zsh(N:h:t) )
-        plugins=( "${plugins[@]//---//}" )
-        plugins=( "${plugins[@]:#_local/zinit}" )
-        plugins=( "${plugins[@]:#custom}" )
+_zinit_recache_cleanup() {
+  return 1
+}
 
-        # Snippets
-        local -a snippets snippets_alreadyld
-        local sni
+_zinit_recache_list() {
+  return 1
+}
 
-        snippets=( "${ZINIT[SNIPPETS_DIR]}"/**/evalcache.zsh(N:h) )
-        snippets=( ${snippets[@]#${ZINIT[SNIPPETS_DIR]}/} )
-        snippets=( ${snippets[@]/(#b)(http|https|ftp|ftps|scp)--/${match[1]}://} )
-        snippets=( ${snippets[@]/--//} )
+_zinit_recache_restart() {
+  _arguments \
+    '(2)--all[operate on all recache]' \
+    '(--all)2:service:__zinit_installed_recache'
+}
 
-        for sni ( ${snippets[@]} ) {
-          if [[ -n ${ZINIT_SNIPPETS[$sni]} ]]; then
-            snippets_alreadyld+=( $sni )
-            snippets=( ${snippets[@]:#$sni} )
-          fi
-        }
+_zinit_recache_run() {
+  _arguments \
+    '(2)--all[operate on all recache]' \
+    '(--all)2:service:__zinit_installed_recache'
+}
 
-        _alternative 'dsnippets:-- Downloaded Snippet --:compadd -a - snippets' \
-          'lsnippets:-- Already Loaded Snippet --:compadd -a - snippets_alreadyld' \
-          'plugins:-- Plugin --:compadd -a - plugins' && \
-            ret=0
-            ret=1
-      ;;
-      *)
-        ret=1
-      ;;
-    esac
-esac
-return $ret
+_zinit_recache_start() {
+  _arguments \
+    '(2)--all[operate on all recache]' \
+    '(--all)2:service:__zinit_installed_recache' \
+    '*:plist: '
+}
+
+_zinit_recache_stop() {
+  _arguments \
+    '(2)--all[operate on all recache]' \
+    '(--all)2:service:__zinit_installed_recache'
+}
+
+
+
+_zinit_recache() {
+  local curcontext="$curcontext" state state_descr line expl
+  local ret=1
+
+  _arguments -C \
+    '1: :->command' \
+    '*: :->service' && return 0
+
+  case $state in
+    command)
+      __zinit_recache_commands ;;
+    service)
+      local command_or_alias command
+      command_or_alias="${line[1]}"
+      command=$(__zinit_recache_expand_alias "$command_or_alias")
+
+      # change context to e.g. zinit-service-list
+      curcontext="${curcontext%:*:*}:zinit-recache-${command}"
+      local completion_func="_zinit_recache_${command//-/_}"
+      _call_function ret "${completion_func}" && return ret
+
+      _message "a completion function is not defined for zinit service ${command}"
+      return 1
+   ;;
+  esac
+}
+
+_zinit_recache "$@"
+# typeset -a commands
+# commands=(recache:'Regenerate eval cache')
+# _arguments -C \
+#   '1: :->command'\
+#   '*: :->argument' && ret=0
+# case $state in
+#   command)
+#       _describe -t commands "z-a-eval subcommand" commands && ret=0
+#       ;;
+#
+#   argument)
+#     case $words[2] in
+#       recache)
+#         # Plugins
+#         typeset -a plugins
+#         plugins=( "${ZINIT[PLUGINS_DIR]}"/**/evalcache.zsh(N:h:t) )
+#         plugins=( "${plugins[@]//---//}" )
+#         plugins=( "${plugins[@]:#_local/zinit}" )
+#         plugins=( "${plugins[@]:#custom}" )
+#
+#         # Snippets
+#         local -a snippets snippets_alreadyld
+#         local sni
+#
+#         snippets=( "${ZINIT[SNIPPETS_DIR]}"/**/evalcache.zsh(N:h) )
+#         snippets=( ${snippets[@]#${ZINIT[SNIPPETS_DIR]}/} )
+#         snippets=( ${snippets[@]/(#b)(http|https|ftp|ftps|scp)--/${match[1]}://} )
+#         snippets=( ${snippets[@]/--//} )
+#
+#         for sni ( ${snippets[@]} ) {
+#           if [[ -n ${ZINIT_SNIPPETS[$sni]} ]]; then
+#             snippets_alreadyld+=( $sni )
+#             snippets=( ${snippets[@]:#$sni} )
+#           fi
+#         }
+#
+#         _alternative 'dsnippets:-- Downloaded Snippet --:compadd -a - snippets' \
+#           'lsnippets:-- Already Loaded Snippet --:compadd -a - snippets_alreadyld' \
+#           'plugins:-- Plugin --:compadd -a - plugins' && \
+#             ret=0
+#             ret=1
+#       ;;
+#       *)
+#         ret=1
+#       ;;
+#     esac
+# esac
+# return $ret
