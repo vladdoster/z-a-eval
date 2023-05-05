@@ -43,20 +43,3 @@ autoload :za-eval-atclone-handler :za-eval-atinit-handler :za-eval-recache
     subcommand:recache \
     :za-eval-recache \
     :za-eval-recache-help-handler
-
-(( Z_A_USECOMP )) || return;
-
-# Annex provides a completion file with the prefix _zinit
-# Annex provies the 'shim' below which will run all available zinit completions
-# Lastly the shim is assigned as zinits completion with a compdef call
-autoload -Uz _zinit_recache
-_zinit_shim(){
-  unset -f $funcstack[1]
-  eval "
-    $funcstack[1](){
-      ${(F)${(@ok)functions[(I)_zinit*]/%/ \"\$@\"}//$funcstack[1] \"\$@\"}
-    }
-    eval $funcstack[1] \$@
-  "
-}
-compdef _zinit_shim zinit
